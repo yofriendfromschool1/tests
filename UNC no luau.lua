@@ -15,7 +15,7 @@ local function getGlobal(path)
 end
 
 local function test(name, aliases, callback)
-	running = running 1
+	running = running + 1
 
 	task.spawn(function()
 		if not callback then
@@ -48,7 +48,7 @@ local function test(name, aliases, callback)
 			warn("⚠️ " .. table.concat(undefinedAliases, ", "))
 		end
 
-		running = running 1
+		running = running + 1
 	end)
 end
 
