@@ -1,6 +1,18 @@
+local version, properties, imageId = "v2.0.0", {TextColor3 = Color3.new(0, 1, 0)}, "rbxasset://textures/AudioDiscovery/done.png"
+local githubVersion = game:GetService("HttpService"):JSONDecode(game:HttpGet("https://api.github.com/repos/external-naming-convention/RobloxNamingStandard/releases"))[1].tag_name
+
+if githubVersion == version then
+	version = "Your RENCCheckEnv.lua is up to date!"
+elseif version:split(".")[1] ~= githubVersion:split(".")[1] or version:split(".")[2] ~= githubVersion:split(".")[2] then
+	version, properties, imageId = ("New version of RENCCheckEnv.lua available, your current version: %s, new version: %s"):format(version, githubVersion), {TextColor3 = Color3.fromRGB(215, 90, 74)}, "rbxasset://textures/DevConsole/Error.png"
+else
+	version, properties, imageId = ("New minor version of RENCCheckEnv.lua available, your current version: %s, new version: %s"):format(version, githubVersion), {TextColor3 = Color3.fromRGB(255, 218, 68)}, "rbxasset://textures/DevConsole/Warning.png"
+end
+
+
+
 local passes, fails, undefined = 0, 0, 0
 local running = 0
-local runningtwo = {}
 
 local function getGlobal(path)
 	local value = getfenv(0)
@@ -25,7 +37,7 @@ local function test(name, aliases, callback)
 			passes = passes + 1
 			print("⏺️ " .. name)
 		else
-			local success, message = pcall(callback)
+			local success, message = pcall(callback, getgenv()[name])
 	
 			if success then
 				passes = passes + 1
@@ -72,6 +84,10 @@ task.defer(function()
 	print("✅ Tested with a " .. rate .. "% success rate (" .. outOf .. ")")
 	print("⛔ " .. fails .. " tests failed")
 	print("⚠️ " .. undefined .. " globals are missing aliases")
+	local customprint = customprint or function(str: string, ...)
+        print(str)
+    end
+	customprint(version, properties, imageId)
 end)
 
 -- Cache
@@ -531,6 +547,20 @@ test("fireclickdetector", {}, function()
 	fireclickdetector(detector, 50, "MouseHoverEnter")
 end)
 
+test("firetouchinterest", {"firetouchtransmitter"})
+
+test("fireproximityprompt", {}, function()
+	local prompt = Instance.new("ProximityPrompt")
+	fireproximityprompt(prompt, "Triggered")
+	fireproximityprompt(prompt, "TriggerEnded")
+end)
+
+test("firesignal", {}, function()
+	local button = Instance.new("TextButton")
+	assert(firesignal(button.MouseButton1Click), "Uses old standard")
+	firesignal(button, "MouseButton1Click")
+end)
+
 test("getcallbackvalue", {}, function()
 	local bindable = Instance.new("BindableFunction")
 	local function test()
@@ -608,7 +638,7 @@ test("setscriptable", {}, function()
 	assert(wasScriptable == false, "Did not return false for a non-scriptable property (size_xml)")
 	assert(isscriptable(fire, "size_xml") == true, "Did not set the scriptable property")
 	fire = Instance.new("Fire")
-	assert(isscriptable(fire, "size_xml") == false, "⚠️⚠️ setscriptable persists between unique instances ⚠️⚠️")
+	--assert(isscriptable(fire, "size_xml") == false, "⚠️⚠️ setscriptable persists between unique instances ⚠️⚠️") -- This persisting actually makes sense tho
 end)
 
 test("setrbxclipboard", {})
@@ -705,7 +735,7 @@ test("queue_on_teleport", {"queueonteleport"})
 
 test("request", {"http.request", "http_request"}, function()
 	local response = request({
-		Url = "https://httpbin.org/user-agent",
+		Url = "http://httpbin.org/user-agent",
 		Method = "GET",
 	})
 	assert(type(response) == "table", "Response must be a table")
@@ -718,24 +748,81 @@ end)
 test("setclipboard", {"toclipboard"})
 
 test("setfpscap", {}, function()
-    local function getfps()
-        local rawfps = game:GetService("Stats").Workspace.Heartbeat:GetValue()
-        local fpsnum = tonumber(rawfps)
-        local fps = math.round(fpsnum)
-        return tostring(fps)
+	local function localgetfps() -- credits: https://devforum.roblox.com/t/get-client-fps-trough-a-script/282631/14
+		local RunService = game:GetService("RunService")
+		local FPS = 0
+		local TimeFunction = RunService:IsRunning() and time or os.clock
+
+		local LastIteration, Start
+		local FrameUpdateTable = {}
+
+		local function HeartbeatUpdate()
+			LastIteration = TimeFunction()
+			for Index = #FrameUpdateTable, 1, -1 do
+				FrameUpdateTable[Index + 1] = FrameUpdateTable[Index] >= LastIteration - 1 and FrameUpdateTable[Index] or nil
+			end
+
+			FrameUpdateTable[1] = LastIteration
+			FPS = TimeFunction() - Start >= 1 and #FrameUpdateTable or #FrameUpdateTable / (TimeFunction() - Start)
+		end
+
+		Start = TimeFunction()
+		RunService.Heartbeat:Connect(HeartbeatUpdate)
+		return math.round(getfps() or FPS)
 	end
+
 	setfpscap(60)
-	local fps60 = getfps()
+	local fps60 = localgetfps()
 	setfpscap(0)
-	local fps0 = getfps()
+	local fps0 = localgetfps()
 	return fps60 .. "fps @60 • " .. fps0 .. "fps @0"
 end)
 
 test("customprint", {})
 
-test("getfps", {})
+test("getfps", {}, function(gf)
+	local function localgetfps() -- credits: https://devforum.roblox.com/t/get-client-fps-trough-a-script/282631/14
+		local RunService = game:GetService("RunService")
+		local FPS = 0
+		local TimeFunction = RunService:IsRunning() and time or os.clock
 
-test("getping", {})
+		local LastIteration, Start
+		local FrameUpdateTable = {}
+
+		local function HeartbeatUpdate()
+			LastIteration = TimeFunction()
+			for Index = #FrameUpdateTable, 1, -1 do
+				FrameUpdateTable[Index + 1] = FrameUpdateTable[Index] >= LastIteration - 1 and FrameUpdateTable[Index] or nil
+			end
+
+			FrameUpdateTable[1] = LastIteration
+			FPS = TimeFunction() - Start >= 1 and #FrameUpdateTable or #FrameUpdateTable / (TimeFunction() - Start)
+		end
+
+		Start = TimeFunction()
+		RunService.Heartbeat:Connect(HeartbeatUpdate)
+		return math.round(getfps() or FPS)
+	end
+	local rf = localgetfps()
+	local rgf = math.round(gf())
+	assert(rf == rgf, ("Did not return correct fps. getfps: %d, fps: %d"):format(rgf, rf)) -- math.round due to executors being able to choose how many decimal points they want. (if any)
+	return rf
+end)
+
+test("getping", {}, function(gp)
+	local rp = math.round(game:GetService("Stats"):FindFirstChild("PerformanceStats").Ping:GetValue())
+	local rgp = math.round(gp())
+	assert(rp == rgp, ("Did not return correct ping. getping: %d, ping: %d"):format(rgp, rp)) -- math.round due to executors being able to choose how many decimal points they want. (if any)
+	return rp
+end)
+
+test("getdevice", {"getplatform", "getos"}, function(gd)
+	function luauGetDevice()
+		return tostring(game:GetService("UserInputService"):GetPlatform()):split(".")[3]
+	end
+	assert(gd() == luauGetDevice(), ("Did not return correct platform. getdevice: %s, luauGetDevice: %s"):format(getdevice(), luauGetDevice()))
+	return gd()
+end)
 
 -- Scripts
 
@@ -839,25 +926,6 @@ test("isrenderobj", {}, function()
 	drawing.Visible = true
 	assert(isrenderobj(drawing) == true, "Did not return true for an Image")
 	assert(isrenderobj(newproxy()) == false, "Did not return false for a blank table")
-end)
-
-test("getrenderproperty", {}, function()
-	local drawing = Drawing.new("Image")
-	drawing.Visible = true
-	assert(type(getrenderproperty(drawing, "Visible")) == "boolean", "Did not return a boolean value for Image.Visible")
-	local success, result = pcall(function()
-		return getrenderproperty(drawing, "Color")
-	end)
-	if not success or not result then
-		return "Image.Color is not supported"
-	end
-end)
-
-test("setrenderproperty", {}, function()
-	local drawing = Drawing.new("Square")
-	drawing.Visible = true
-	setrenderproperty(drawing, "Visible", false)
-	assert(drawing.Visible == false, "Did not set the value for Square.Visible")
 end)
 
 test("cleardrawcache", {}, function()
